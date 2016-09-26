@@ -4483,9 +4483,13 @@ function ulOpenSocket x
    end if
    send "ulSocketTimeout" && x to me in 500 milliseconds
    put the result into lvSocketOpenMessageID[x]
+   put lvSocketOpenMessageID[x] into tMsgId
    
    repeat until lvSocketToken[x] is not empty
-      if lvJumpOut then exit to top
+      if lvJumpOut then
+        cancel tMsgId ## Make sure that sockettimeout checker doesn't keep going
+        exit to top
+      end if
       wait for messages
    end repeat
    cancel lvSocketOpenMessageID[x]
