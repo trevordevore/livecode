@@ -50,6 +50,8 @@ local lvProxyBypassList        -- URLs that bypass any proxy settings
 -- CW-2016-06-11: [[ External driver support ]] Add support for using an external library for network functions.
 local lvExtDriver
 
+local lvServersThatBypassCertificateVerification ## cr delimited list
+
 ---------------------------------------------------------------------
 ##http locals
 local laConn,laCode,laChunk,laRhHeader, laHaveHeader, laNeedChunk
@@ -704,7 +706,7 @@ on ulHostNameToAddressCallback, pHostname, pIP
       put "booked" into laUrlErrorStatus[tURL]
       if tPre = "http" or tPre = "https" then
          if tPre = "https" then
-            put lvSSLVerification into laCurrentSSLVerify[tURL]
+            put _useCertificateVerificationForURL(tURL) into laCurrentSSLVerify[tURL]
          end if
          ulHttpRequest tURL
       else
@@ -4465,7 +4467,7 @@ function ulOpenSocket x
    
    put empty into lvSocketToken[x]
    put the milliseconds into lvSocketOpenStart[x]
-   -- MM-2014-02-27: [[ HTTPS Proxy ]] Only create a secure socket if conneting to a HTTPS URL directly.
+   -- MM-2014-02-27: [[ HTTPS Proxy ]] Only create a secure socket if connecting to a HTTPS URL directly.
    --  If going though a proxy, first communicate with the proxy unencrypted before securing the socket later.
    if laUrlProxy[laUrl[x]] is empty and ulIsSecure(laUrl[x]) then
       put true into laSocketSecured[x]
@@ -5289,6 +5291,37 @@ private function _proxyfromHTTPProxy pURL, pProxy
    end if
    return pProxy
 end _proxyFromHTTPProxy
+
+---------------------------------------------
+
+function libURLGetServersThatBypassCertificateVerification
+    return lvServersThatBypassCertificateVerification
+end libURLGetServersThatBypassCertificateVerification
+
+command libURLSetServersThatBypassCertificateVerification pServers
+    put pServers into lvServersThatBypassCertificateVerification
+end libURLSetServersThatBypassCertificateVerification
+
+command libURLIgnoreCertificateVerificationForHost pUrl
+  local tHost
+  
+  put _extractHost(pURL) into tHost
+  if lineOffset(tHost, lvServersThatBypassCertificateVerification) is 0 then
+    put tHost into line (the number of lines of lvServersThatBypassCertificateVerification + 1) of lvServersThatBypassCertificateVerification
+  end if
+  
+  return empty
+end libURLIgnoreCertificateVerificationForHost
+
+private function _useCertificateVerificationForURL pURL
+  if lvSSLVerification then
+    local tHost
+    put _extractHost(pURL) into tHost
+    return lineOffset(tHost, lvServersThatBypassCertificateVerification) is 0
+  else
+    return false
+  end if
+end _useCertificateVerificationForURL
 
 --------------------------------------------------
 -- CW-2016-06-11: [[ External driver support ]] Add support for using an external library for network functions.
